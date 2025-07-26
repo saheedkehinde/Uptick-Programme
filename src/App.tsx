@@ -9,7 +9,9 @@ import {
   Menu,
   X,
   Building2,
-  CheckCircle
+  CheckCircle,
+  LogIn,
+  LogOut
 } from 'lucide-react';
 
 // Employee interface
@@ -24,6 +26,12 @@ interface Employee {
   hireDate: string;
 }
 
+// User interface
+interface User {
+  username: string;
+  role: 'admin' | 'viewer';
+}
+
 // Initial mock data
 const initialEmployees: Employee[] = [
   { id: 1, firstName: 'John', lastName: 'Doe', email: 'john.doe@company.com', department: 'Engineering', role: 'Senior Software Engineer', status: 'Active', hireDate: '2023-01-15' },
@@ -32,6 +40,12 @@ const initialEmployees: Employee[] = [
   { id: 4, firstName: 'Emily', lastName: 'Rodriguez', email: 'emily.rodriguez@company.com', department: 'Marketing', role: 'Marketing Specialist', status: 'Active', hireDate: '2023-06-01' },
   { id: 5, firstName: 'David', lastName: 'Wilson', email: 'david.wilson@company.com', department: 'Sales', role: 'Sales Representative', status: 'Active', hireDate: '2023-04-15' },
   { id: 6, firstName: 'Jessica', lastName: 'Brown', email: 'jessica.brown@company.com', department: 'Finance', role: 'Financial Analyst', status: 'On Leave', hireDate: '2022-11-30' },
+];
+
+// Mock users for authentication
+const mockUsers = [
+  { username: 'admin', password: 'admin123', role: 'admin' as const },
+  { username: 'viewer', password: 'viewer123', role: 'viewer' as const },
 ];
 
 // Employee Context
@@ -45,6 +59,17 @@ const EmployeeContext = React.createContext<{
   addEmployee: () => {},
   updateEmployee: () => {},
   deleteEmployee: () => {},
+});
+
+// Auth Context
+const AuthContext = React.createContext<{
+  user: User | null;
+  login: (username: string, password: string) => boolean;
+  logout: () => void;
+}>({
+  user: null,
+  login: () => false,
+  logout: () => {},
 });
 
 // Employee Provider
@@ -78,6 +103,135 @@ function EmployeeProvider({ children }: { children: React.ReactNode }) {
     <EmployeeContext.Provider value={{ employees, addEmployee, updateEmployee, deleteEmployee }}>
       {children}
     </EmployeeContext.Provider>
+  );
+}
+
+// Auth Provider
+function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('currentUser');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const login = (username: string, password: string): boolean => {
+    const foundUser = mockUsers.find(u => u.username === username && u.password === password);
+    if (foundUser) {
+      const userData = { username: foundUser.username, role: foundUser.role };
+      setUser(userData);
+      localStorage.setItem('currentUser', JSON.stringify(userData));
+      return true;
+    }
+    return false;
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('currentUser');
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+// Login Component
+function Login() {
+  const { login } = React.useContext(AuthContext);
+  const [formData, setFormData] = useState({ username: '', password: '' });
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    const success = login(formData.username, formData.password);
+    if (!success) {
+      setError('Invalid username or password');
+    }
+    setIsLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
+      <div className="max-w-md w-full space-y-8">
+        <div className="text-center">
+          <div className="mx-auto h-16 w-16 bg-gradient-to-br from-navy-600 to-soft-blue-600 rounded-xl flex items-center justify-center mb-4">
+            <Building2 className="h-8 w-8 text-white" />
+          </div>
+          <h2 className="text-3xl font-bold text-white">HR Dashboard</h2>
+          <p className="mt-2 text-gray-400">Sign in to your account</p>
+        </div>
+        
+        <div className="bg-gray-800 p-8 rounded-lg shadow-xl border border-gray-700">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Username
+              </label>
+              <input
+                type="text"
+                value={formData.username}
+                onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-soft-blue-500 focus:border-soft-blue-500 transition-colors duration-200"
+                placeholder="Enter your username"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-soft-blue-500 focus:border-soft-blue-500 transition-colors duration-200"
+                placeholder="Enter your password"
+                required
+              />
+            </div>
+            
+            {error && (
+              <div className="text-red-400 text-sm text-center">{error}</div>
+            )}
+            
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full flex justify-center items-center px-4 py-2 bg-soft-blue-600 hover:bg-soft-blue-700 text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-soft-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            >
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  <LogIn className="h-4 w-4 mr-2" />
+                  Sign In
+                </>
+              )}
+            </button>
+          </form>
+          
+          <div className="mt-6 p-4 bg-gray-700 rounded-md">
+            <p className="text-sm text-gray-300 font-medium mb-2">Demo Credentials:</p>
+            <div className="text-xs text-gray-400 space-y-1">
+              <div>Admin: <span className="text-white">admin / admin123</span></div>
+              <div>Viewer: <span className="text-white">viewer / viewer123</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -166,6 +320,7 @@ function Dashboard() {
 // Employees List Component
 function EmployeesList() {
   const { employees } = React.useContext(EmployeeContext);
+  const { user } = React.useContext(AuthContext);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -174,13 +329,15 @@ function EmployeesList() {
           <h2 className="text-lg font-semibold text-navy-800 dark:text-white">All Employees</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">Manage your team members</p>
         </div>
-        <Link
-          to="/employees/new"
-          className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 bg-soft-blue-500 hover:bg-soft-blue-600 text-white text-sm font-medium rounded-md transition-colors duration-200 shadow-sm"
-        >
-          <UserPlus className="h-4 w-4 mr-2" />
-          Add Employee
-        </Link>
+        {user?.role === 'admin' && (
+          <Link
+            to="/employees/new"
+            className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 bg-soft-blue-500 hover:bg-soft-blue-600 text-white text-sm font-medium rounded-md transition-colors duration-200 shadow-sm"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add Employee
+          </Link>
+        )}
       </div>
       
       <div className="bg-white dark:bg-gray-800 shadow border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
@@ -235,8 +392,21 @@ function EmployeesList() {
 function AddEmployee() {
   const navigate = useNavigate();
   const { addEmployee } = React.useContext(EmployeeContext);
+  const { user } = React.useContext(AuthContext);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  
+  // Redirect if not admin
+  if (user?.role !== 'admin') {
+    return (
+      <div className="text-center py-12">
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+          <h3 className="text-xl font-semibold text-navy-800 dark:text-white mb-2">Access Denied</h3>
+          <p className="text-gray-600 dark:text-gray-400">You need admin privileges to add employees.</p>
+        </div>
+      </div>
+    );
+  }
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -488,12 +658,13 @@ function AddEmployee() {
 // Navigation Component
 function Navigation() {
   const location = useLocation();
+  const { user, logout } = React.useContext(AuthContext);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/employees', icon: Users, label: 'Employees' },
-    { path: '/employees/new', icon: UserPlus, label: 'Add Employee' },
+    ...(user?.role === 'admin' ? [{ path: '/employees/new', icon: UserPlus, label: 'Add Employee' }] : []),
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -555,6 +726,16 @@ function Navigation() {
                   </Link>
                 );
               })}
+              <button
+                onClick={() => {
+                  logout();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 w-full"
+              >
+                <LogOut className="h-5 w-5" />
+                <span className="font-medium">Logout</span>
+              </button>
             </nav>
           </div>
         </div>
@@ -591,16 +772,46 @@ function Navigation() {
               );
             })}
           </nav>
+          <div className="px-2 pb-4">
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 mb-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Logged in as</p>
+              <p className="text-sm font-medium text-navy-800 dark:text-white">{user?.username}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user?.role}</p>
+            </div>
+            <button
+              onClick={logout}
+              className="w-full flex items-center px-2 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white rounded-md transition-colors duration-200"
+            >
+              <LogOut className="mr-3 h-5 w-5 flex-shrink-0" />
+              Logout
+            </button>
+          </div>
         </div>
       </div>
     </>
   );
 }
 
+// Protected Route Component
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user } = React.useContext(AuthContext);
+  
+  if (!user) {
+    return <Login />;
+  }
+  
+  return <>{children}</>;
+}
+
 function App() {
-  const [darkMode, setDarkMode] = useState(false);
+  // Set dark mode as default
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved ? JSON.parse(saved) : true; // Default to true (dark mode)
+  });
 
   React.useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
     if (darkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -609,65 +820,69 @@ function App() {
   }, [darkMode]);
 
   return (
-    <EmployeeProvider>
-      <Router>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-          <Navigation />
-          
-          <div className="lg:pl-64">
-            {/* Header */}
-            <div className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700">
-              <div className="px-4 sm:px-6 lg:px-8 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <Routes>
-                      <Route path="/dashboard" element={
-                        <div>
-                          <h1 className="text-2xl font-bold text-navy-800 dark:text-white">Dashboard</h1>
-                          <p className="text-gray-600 dark:text-gray-300">Overview of your employee management system</p>
-                        </div>
-                      } />
-                      <Route path="/employees" element={
-                        <div>
-                          <h1 className="text-2xl font-bold text-navy-800 dark:text-white">Employee Management</h1>
-                          <p className="text-gray-600 dark:text-gray-300">Manage and view all employee records</p>
-                        </div>
-                      } />
-                      <Route path="/employees/new" element={
-                        <div>
-                          <h1 className="text-2xl font-bold text-navy-800 dark:text-white">Add New Employee</h1>
-                          <p className="text-gray-600 dark:text-gray-300">Add a new employee to the system</p>
-                        </div>
-                      } />
-                    </Routes>
+    <AuthProvider>
+      <EmployeeProvider>
+        <Router>
+          <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+            <ProtectedRoute>
+              <Navigation />
+              
+              <div className="lg:pl-64">
+                {/* Header */}
+                <div className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700">
+                  <div className="px-4 sm:px-6 lg:px-8 py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <Routes>
+                          <Route path="/dashboard" element={
+                            <div>
+                              <h1 className="text-2xl font-bold text-navy-800 dark:text-white">Dashboard</h1>
+                              <p className="text-gray-600 dark:text-gray-300">Overview of your employee management system</p>
+                            </div>
+                          } />
+                          <Route path="/employees" element={
+                            <div>
+                              <h1 className="text-2xl font-bold text-navy-800 dark:text-white">Employee Management</h1>
+                              <p className="text-gray-600 dark:text-gray-300">Manage and view all employee records</p>
+                            </div>
+                          } />
+                          <Route path="/employees/new" element={
+                            <div>
+                              <h1 className="text-2xl font-bold text-navy-800 dark:text-white">Add New Employee</h1>
+                              <p className="text-gray-600 dark:text-gray-300">Add a new employee to the system</p>
+                            </div>
+                          } />
+                        </Routes>
+                      </div>
+                      <button
+                        onClick={() => setDarkMode(!darkMode)}
+                        className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200"
+                      >
+                        {darkMode ? (
+                          <Sun className="h-5 w-5 text-yellow-500" />
+                        ) : (
+                          <Moon className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => setDarkMode(!darkMode)}
-                    className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200"
-                  >
-                    {darkMode ? (
-                      <Sun className="h-5 w-5 text-yellow-500" />
-                    ) : (
-                      <Moon className="h-5 w-5" />
-                    )}
-                  </button>
                 </div>
-              </div>
-            </div>
 
-            {/* Main Content */}
-            <main className="px-4 sm:px-6 lg:px-8 py-6">
-              <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/employees" element={<EmployeesList />} />
-                <Route path="/employees/new" element={<AddEmployee />} />
-              </Routes>
-            </main>
+                {/* Main Content */}
+                <main className="px-4 sm:px-6 lg:px-8 py-6">
+                  <Routes>
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/employees" element={<EmployeesList />} />
+                    <Route path="/employees/new" element={<AddEmployee />} />
+                  </Routes>
+                </main>
+              </div>
+            </ProtectedRoute>
           </div>
-        </div>
-      </Router>
-    </EmployeeProvider>
+        </Router>
+      </EmployeeProvider>
+    </AuthProvider>
   );
 }
 

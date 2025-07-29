@@ -170,7 +170,7 @@ export class EmployeeService {
     return `emp_${timestamp}_${random}`;
   }
 
-  // CRUD Operations
+
   public getAllEmployees(): Employee[] {
     return [...this.employees];
   }
